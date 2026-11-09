@@ -3,9 +3,13 @@
    rồi gửi chữ vào app, (3) trả lời tin "hello". Không đọc hay ghi gì khác.
 
    Giao thức postMessage, mọi tin có src:'sodaspa':
-     app -> vỏ:  {type:'hello'} | {type:'getPin'} | {type:'savePin',pin} | {type:'forgetPin'} | {type:'micStart',lang} | {type:'micStop'}
-     vỏ -> app:  {type:'shell',ver,voVer,mic,hasPin} | {type:'pin',pin} | {type:'micText',text,final} | {type:'micEnd'} | {type:'micError',code,detail} | {type:'micNeedTap'}
+     app -> vỏ:  {type:'hello'} | {type:'getPin'} | {type:'savePin',pin} | {type:'forgetPin'} | {type:'micStart',lang,sid} | {type:'micStop',sid}
+     vỏ -> app:  {type:'shell',ver,voVer,mic,hasPin} | {type:'pin',pin} | {type:'micText',text,final,sid} | {type:'micEnd',sid} | {type:'micError',code,detail,sid} | {type:'micNeedTap',sid}
      code: denied | unsupported | nospeech | other
+   sid (v1.2): mã lượt nghe do app đặt trong micStart; vỏ gắn lại vào mọi tin mic của lượt đó, và micStop mang sid cũ bị bỏ qua
+   (để tin trễ của lượt cũ không phá lượt mới). App bản cũ không gửi sid thì vỏ vẫn chạy như trước.
+   v1.3: vỏ -> app {type:'viewport',kb,vvh,insets:{top,right,bottom,left}} (bàn phím iPhone + vùng an toàn đo ở trang trên cùng);
+         app -> vỏ {type:'ui',bottom,sheetOpen} (ô chat cao bao nhiêu để đặt nút "Chạm để nói" ngay phía trên; ẩn nút khi có bảng nổi).
    Lưu ý: "hasPin" là trường thêm vào tin 'shell' để app biết có nên chờ tin 'pin' hay không.
    Tin trả lời hello/getPin gửi thẳng cho khung vừa hỏi (event.source) với đúng origin của nó, không phát ra mọi khung. */
 (function (root) {
@@ -15,7 +19,7 @@
   var PIN_KEY = 'sds_pin';
   var CFG = root.SO_DA_SPA || {};
   var frame = null;
-  var VO_VER = '1.1';           /* phiên bản vỏ, hiện trong Cài đặt của app để dò lỗi */
+  var VO_VER = '1.3';           /* phiên bản vỏ, hiện trong Cài đặt của app để dò lỗi */
 
   function getFrame() {
     if (!frame && root.document) frame = root.document.getElementById('app');
@@ -112,10 +116,10 @@
     killRec(r);
     if (quiet) return;
     if (!s.aborted) {
-      if (s.err) broadcast({ type: 'micError', code: micErrorCode(s.err), detail: String(s.err) });
-      else if (!s.got && !s.userStop) broadcast({ type: 'micError', code: 'nospeech', detail: s.begun ? 'no-speech' : 'no-start' });
+      if (s.err) broadcast({ type: 'micError', code: micErrorCode(s.err), detail: String(s.err), sid: s.sid });
+      else if (!s.got && !s.userStop) broadcast({ type: 'micError', code: 'nospeech', detail: s.begun ? 'no-speech' : 'no-start', sid: s.sid });
     }
-    broadcast({ type: 'micEnd' });
+    broadcast({ type: 'micEnd', sid: s.sid });
   }
   /* Xin dừng nhẹ nhàng; nếu onend không tới trong 1,5 giây thì ép dọn. */
   function requestStop(s) {
@@ -132,6 +136,13 @@
   var TAP_WAIT_MS = 20000;
   var MIC_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg>';
   var pill = null;
+  var pillWanted = false;           /* phiên đang chờ chạm */
+  var UI = { bottom: 110, sheetOpen: false };   /* app báo: ô chat cao bao nhiêu, có bảng nổi không */
+  function refreshPill() {
+    if (!pill) return;
+    pill.style.bottom = (UI.bottom + 12) + 'px';
+    pill.style.display = (pillWanted && !UI.sheetOpen) ? 'flex' : 'none';
+  }
 
   function pillSet(listening) {
     if (!pill) return;
@@ -145,7 +156,7 @@
       pill = d.createElement('button');
       pill.type = 'button';
       pill.id = 'vo-mic-pill';
-      pill.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 92px);' +
+      pill.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:122px;' +
         'z-index:2147483000;min-height:48px;padding:0 22px;border:0;border-radius:999px;background:#E0457F;color:#fff;' +
         'font:600 16px/1.2 -apple-system,system-ui,sans-serif;display:flex;align-items:center;gap:8px;' +
         'box-shadow:0 6px 20px rgba(224,69,127,.45);-webkit-tap-highlight-color:transparent;touch-action:manipulation';
@@ -153,10 +164,11 @@
       d.body.appendChild(pill);
     }
     pillSet(false);
-    pill.style.display = 'flex';
+    pillWanted = true;
+    refreshPill();
     return true;
   }
-  function hidePill() { if (pill) pill.style.display = 'none'; }
+  function hidePill() { pillWanted = false; if (pill) pill.style.display = 'none'; }
   function onPillTap() {
     var s = cur;
     if (!s || s.done) { hidePill(); return; }
@@ -178,7 +190,7 @@
     clearTimers(s);
     killRec(s.r); s.r = null; s.begun = false;
     s.tMax = root.setTimeout(function () { s.tMax = null; finish(s); }, TAP_WAIT_MS);
-    broadcast({ type: 'micNeedTap', detail: String(why || '') });
+    broadcast({ type: 'micNeedTap', detail: String(why || ''), sid: s.sid });
     return true;
   }
 
@@ -209,7 +221,7 @@
       }
       text = text.replace(/\s+/g, ' ').trim();
       if (s.tNone) { root.clearTimeout(s.tNone); s.tNone = null; }
-      if (text) { s.got = true; broadcast({ type: 'micText', text: text, final: final }); }
+      if (text) { s.got = true; broadcast({ type: 'micText', text: text, final: final, sid: s.sid }); }
     };
     r.onerror = function (e) {
       if (!live()) return;
@@ -248,11 +260,12 @@
   }
   function errText(e) { return String((e && (e.name ? e.name + (e.message ? ': ' + e.message : '') : e.message)) || e || 'error').slice(0, 120); }
 
-  function micStart(lang) {
+  function micStart(lang, sid) {
     var Ctor = SR();
-    if (!Ctor) { broadcast({ type: 'micError', code: 'unsupported', detail: 'unsupported' }); broadcast({ type: 'micEnd' }); return; }
+    sid = (typeof sid === 'string' && sid.length <= 40) ? sid : '';
+    if (!Ctor) { broadcast({ type: 'micError', code: 'unsupported', detail: 'unsupported', sid: sid }); broadcast({ type: 'micEnd', sid: sid }); return; }
     if (cur) finish(cur, true);                 /* dọn phiên cũ, không gửi micEnd (app đang bắt đầu lượt mới) */
-    var s = { id: ++seq, r: null, got: false, err: '', aborted: false, userStop: false, done: false, retried: false,
+    var s = { id: ++seq, sid: sid, r: null, got: false, err: '', aborted: false, userStop: false, done: false, retried: false,
       lang: (typeof lang === 'string' && /^[a-z]{2,3}-[A-Z]{2}$/.test(lang)) ? lang : 'vi-VN' };
     cur = s;
     s.tNone = root.setTimeout(function () { s.tNone = null; requestStop(s); }, NO_RESULT_MS);
@@ -260,11 +273,44 @@
     launch(s);
   }
 
-  function micStop() {
-    if (!cur) { broadcast({ type: 'micEnd' }); return; }
+  function micStop(sid) {
+    sid = (typeof sid === 'string') ? sid : '';
+    if (sid && cur && cur.sid && cur.sid !== sid) return;      /* lệnh dừng của lượt cũ, không được dừng lượt mới */
+    if (!cur) { broadcast({ type: 'micEnd', sid: sid }); return; }
     cur.userStop = true;
     hidePill();
     requestStop(cur);
+  }
+
+  /* ---------- Khung nhìn: bàn phím + vùng an toàn (đo ở trang trên cùng, vì iframe khác nguồn trên iOS có thể báo sai) ---------- */
+  var probe = null;
+  function insets() {
+    var out = { top: 0, right: 0, bottom: 0, left: 0 };
+    var d = root.document;
+    if (!d || !d.createElement || !d.body || !root.getComputedStyle) return out;
+    try {
+      if (!probe) {
+        probe = d.createElement('div');
+        probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;' +
+          'padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+        d.body.appendChild(probe);
+      }
+      var cs = root.getComputedStyle(probe);
+      out.top = parseFloat(cs.paddingTop) || 0; out.right = parseFloat(cs.paddingRight) || 0;
+      out.bottom = parseFloat(cs.paddingBottom) || 0; out.left = parseFloat(cs.paddingLeft) || 0;
+    } catch (e) { /* bỏ qua */ }
+    return out;
+  }
+  function viewportMsg() {
+    var vv = root.visualViewport, ih = root.innerHeight || 0;
+    var vvh = vv ? vv.height : ih;
+    var kb = vv ? Math.max(0, Math.round(ih - vv.height - (vv.offsetTop || 0))) : 0;
+    return { type: 'viewport', kb: kb, vvh: Math.round(vvh), insets: insets() };
+  }
+  function sendViewport() { broadcast(viewportMsg()); }
+  if (root.visualViewport && root.visualViewport.addEventListener) {
+    root.visualViewport.addEventListener('resize', sendViewport);
+    root.visualViewport.addEventListener('scroll', sendViewport);
   }
 
   /* ---------- Nhận tin từ app ---------- */
@@ -274,7 +320,13 @@
     if (!m || m.src !== SRC || typeof m.type !== 'string') return;
     switch (m.type) {
       case 'hello':
+        reply(ev, viewportMsg());
         reply(ev, { type: 'shell', ver: String(CFG.version || ''), voVer: VO_VER, mic: !!SR(), hasPin: !!readPin() });
+        break;
+      case 'ui':
+        if (typeof m.bottom === 'number' && m.bottom >= 0 && m.bottom <= 800) UI.bottom = Math.round(m.bottom);
+        UI.sheetOpen = m.sheetOpen === true;
+        refreshPill();
         break;
       case 'getPin':
         var p = readPin();
@@ -282,14 +334,19 @@
         break;
       case 'savePin': savePin(m.pin); break;
       case 'forgetPin': forgetPin(); break;
-      case 'micStart': micStart(m.lang); break;
-      case 'micStop': micStop(); break;
+      case 'micStart': micStart(m.lang, m.sid); break;
+      case 'micStop': micStop(m.sid); break;
       default: break;
     }
   }
 
-  if (root.addEventListener) root.addEventListener('message', onMessage);
+  if (root.addEventListener) {
+    root.addEventListener('message', onMessage);
+    root.addEventListener('resize', sendViewport);
+    root.addEventListener('orientationchange', sendViewport);
+    root.addEventListener('load', sendViewport);
+  }
 
   /* Cho bài kiểm tra tự động (không ảnh hưởng khi chạy thật) */
-  root.__soDaSpaVo = { broadcast: broadcast, onMessage: onMessage, originOk: originOk };
+  root.__soDaSpaVo = { broadcast: broadcast, onMessage: onMessage, originOk: originOk, viewportMsg: viewportMsg };
 })(typeof window !== 'undefined' ? window : globalThis);

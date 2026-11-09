@@ -15,10 +15,10 @@
 <style>
 :root{--bg:#FFF1F6;--ink:#4A2A38;--muted:#86687A;--pink:#EC8FAD;--pink-deep:#B8456F;--lav:#8B6FD6;--line:#F6E0E8}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);overscroll-behavior:none}
+html,body{margin:0;height:100%;background:var(--bg);overscroll-behavior:none;overflow:hidden;touch-action:manipulation}
 body{padding-top:env(safe-area-inset-top);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-weight:400;color:var(--ink);-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
-#app{position:fixed;left:0;right:0;bottom:0;top:env(safe-area-inset-top);width:100%;height:calc(100% - env(safe-area-inset-top));border:0;background:var(--bg);display:block}
-#splash{position:fixed;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:linear-gradient(160deg,#FFE4EC 0%,#F6EEFF 100%);transition:opacity .35s ease}
+#app{position:fixed;left:0;right:0;bottom:0;top:env(safe-area-inset-top);width:100%;height:calc(100% - env(safe-area-inset-top));border:0;background:var(--bg);display:block;overscroll-behavior:none;-webkit-overflow-scrolling:touch}
+#splash{position:fixed;inset:0;z-index:5;touch-action:none;overscroll-behavior:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;background:linear-gradient(160deg,#FFE4EC 0%,#F6EEFF 100%);transition:opacity .35s ease}
 #splash.gone{opacity:0;pointer-events:none}
 #splash img{width:112px;height:112px;border-radius:26px;box-shadow:0 10px 28px rgba(184,69,111,.18)}
 #splash h1{margin:0;font-size:22px;font-weight:500;color:var(--pink-deep)}
@@ -28,7 +28,7 @@ body{padding-top:env(safe-area-inset-top);font-family:-apple-system,BlinkMacSyst
 .dots i:nth-child(2){animation-delay:.18s}.dots i:nth-child(3){animation-delay:.36s}
 @keyframes dot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
 #offline{display:none;flex-direction:column;align-items:center;gap:12px}
-#offline button{min-height:48px;padding:0 26px;border-radius:14px;border:0;font:inherit;font-weight:500;font-size:16px;color:#fff;background:linear-gradient(135deg,#E8789D,#B8456F);box-shadow:0 6px 16px rgba(184,69,111,.22)}
+#offline button{touch-action:manipulation;min-height:48px;padding:0 26px;border-radius:14px;border:0;font:inherit;font-weight:500;font-size:16px;color:#fff;background:linear-gradient(135deg,#E8789D,#B8456F);box-shadow:0 6px 16px rgba(184,69,111,.22)}
 #splash.off .dots{display:none}
 #splash.off #offline{display:flex}
 #splash.off #msg{display:none}
