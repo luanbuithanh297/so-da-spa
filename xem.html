@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#FFE4EC">
+<title>Tiến trình da của bạn</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<style>
+:root{--bg:#FFF1F6;--ink:#4A2A38;--muted:#86687A;--pink-deep:#B8456F;--lav:#8B6FD6}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+#v{position:fixed;inset:0;width:100%;height:100%;border:0;background:var(--bg);display:block}
+#splash{position:fixed;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:linear-gradient(160deg,#FFE4EC 0%,#F6EEFF 100%);transition:opacity .35s ease}
+#splash.gone{opacity:0;pointer-events:none}
+#splash h1{margin:0;font-size:20px;font-weight:600;color:var(--pink-deep)}
+#splash p{margin:0;font-size:15px;color:var(--muted);max-width:320px;line-height:1.5}
+.dots{display:flex;gap:7px;height:10px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--lav);opacity:.35;animation:dot 1.1s ease-in-out infinite}
+.dots i:nth-child(2){animation-delay:.18s}.dots i:nth-child(3){animation-delay:.36s}
+@keyframes dot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+#splash.err .dots{display:none}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.7}#splash{transition:none}}
+</style>
+</head>
+<body>
+<!-- xem.html: trang trung gian cho khách (link "Tiến trình da của bạn"). KHÔNG nạp vo.js, KHÔNG hỏi mã PIN, KHÔNG dùng địa chỉ app của chủ spa ngoài config.js.
+     Chỉ nhận ?k=<mã link> rồi nhúng trang chỉ đọc của máy chủ: <địa chỉ app>?k=<mã link>. -->
+<iframe id="v" title="Tiến trình da của bạn" referrerpolicy="no-referrer" hidden></iframe>
+<div id="splash" role="status" aria-live="polite">
+  <h1 id="t">Tiến trình da của bạn</h1>
+  <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+  <p id="m">Đang mở trang…</p>
+</div>
+<noscript><p style="padding:24px;text-align:center">Cần bật JavaScript để xem trang này.</p></noscript>
+<script src="config.js"></script>
+<script>
+(function () {
+  var frame = document.getElementById('v'), splash = document.getElementById('splash');
+  var t = document.getElementById('t'), m = document.getElementById('m');
+  var k = (/[?&]k=([A-Za-z0-9]{24,80})(?:&|$)/.exec(location.search) || [])[1] || '';
+  var base = (window.SO_DA_SPA && window.SO_DA_SPA.webAppUrl) || '';
+  function fail(title, text) {
+    t.textContent = title; m.textContent = text; splash.classList.add('err'); splash.classList.remove('gone');
+  }
+  if (!k) { fail('Link chưa đúng', 'Link này thiếu mã. Bạn nhắn spa để được gửi lại link nhé.'); return; }
+  if (!/^https:\/\/script\.google\.com\/[^\s?#]+$/.test(base)) { fail('Chưa mở được trang', 'Trang này chưa được cài đặt xong. Bạn nhắn spa để được hỗ trợ nhé.'); return; }
+  frame.onload = function () { splash.classList.add('gone'); };
+  frame.src = base + '?k=' + k;
+  frame.hidden = false;
+  window.setTimeout(function () {
+    if (!splash.classList.contains('gone')) { m.textContent = 'Đang tải hơi lâu, bạn đợi thêm một chút nhé…'; }
+  }, 8000);
+})();
+</script>
+</body>
+</html>

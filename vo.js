@@ -10,6 +10,7 @@
    (để tin trễ của lượt cũ không phá lượt mới). App bản cũ không gửi sid thì vỏ vẫn chạy như trước.
    v1.3: vỏ -> app {type:'viewport',kb,vvh,insets:{top,right,bottom,left}} (bàn phím iPhone + vùng an toàn đo ở trang trên cùng);
          app -> vỏ {type:'ui',bottom,sheetOpen} (ô chat cao bao nhiêu để đặt nút "Chạm để nói" ngay phía trên; ẩn nút khi có bảng nổi).
+   v1.4: chỉ thêm trang xem.html (link "Tiến trình da của bạn" cho khách: nhận ?k=, nhúng <địa chỉ app>?k=; KHÔNG nạp vo.js, không PIN). Giao thức postMessage không đổi.
    Lưu ý: "hasPin" là trường thêm vào tin 'shell' để app biết có nên chờ tin 'pin' hay không.
    Tin trả lời hello/getPin gửi thẳng cho khung vừa hỏi (event.source) với đúng origin của nó, không phát ra mọi khung. */
 (function (root) {
@@ -19,7 +20,7 @@
   var PIN_KEY = 'sds_pin';
   var CFG = root.SO_DA_SPA || {};
   var frame = null;
-  var VO_VER = '1.3';           /* phiên bản vỏ, hiện trong Cài đặt của app để dò lỗi */
+  var VO_VER = '1.4';           /* phiên bản vỏ, hiện trong Cài đặt của app để dò lỗi */
 
   function getFrame() {
     if (!frame && root.document) frame = root.document.getElementById('app');
